@@ -474,7 +474,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+      {/* 此处可以调整网页宽度max-w-6xl -> max-w-14xl */}
+      <main className="mx-auto max-w-14xl px-4 py-6 space-y-6"> 
         <Toolbar
           q={q}
           setQ={setQ}
