@@ -1,16 +1,85 @@
-# React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# 🎞️ Cyber Poster Wall
 
-Currently, two official plugins are available:
+> 一个 **U 盘插拔式的观影海报墙网站** —— 无需服务器、无需数据库、可离线运行。
+> 只需导入 JSON，即可开始使用；使用完毕导出 JSON 并清空浏览器缓存即可。
+> A **U-disk-style, plug-and-play** movie poster wall — fully offline, portable, and self-contained.
+> Import a JSON file, edit locally, export your posters, and unplug — all data stays in one file.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# Demo
+🔗 [Live Site →](https://zhenrys.github.io/cyber-poster-wall/)
 
-## Expanding the ESLint configuration
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/4880e2d3-59f2-4734-a019-f6d78e57dbef" width="60%" />
+  <img src="https://github.com/user-attachments/assets/1156777b-9bc8-4f34-ae19-5fb66e98317c" width="34%" />
+</div>
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🧭 使用流程 | Typical Workflow
+
+| 步骤  | 操作        | 说明                   |
+| --- | --------- | -------------------- |
+| 1️⃣ | 导入 JSON   | 上传 `posters.json` 文件 |
+| 2️⃣ | 添加 / 编辑海报 | 粘贴或上传图片、填写短评         |
+| 3️⃣ | 导出 JSON   | 下载更新后的收藏             |
+| 4️⃣ | 清除本地存储    | 重置使用环境（U 盘拔出）        |
+
+| Step | Action             | Description                    |
+| ---- | ------------------ | ------------------------------ |
+| 1️⃣  | Import JSON        | Upload existing `posters.json` |
+| 2️⃣  | Add / Edit Posters | Paste or upload new posters    |
+| 3️⃣  | Export JSON        | Download updated collection    |
+| 4️⃣  | Clear Storage      | Reset for next session         |
+
+---
+
+## 🧩 数据格式 | Data Format
+
+示例 `posters.json` 内容：
+Example of a portable JSON file:
+
+```json
+[
+  {
+    "id": "blade-runner-2049-1730560220000",
+    "title": "Blade Runner 2049",
+    "posterUrl": "data:image/jpeg;base64,...",
+    "review": "Hypnotic neon-noir that meditates on memory and meaning."
+  },
+  {
+    "id": "akira-1988-1730560332000",
+    "title": "AKIRA",
+    "posterUrl": "data:image/jpeg;base64,...",
+    "review": "Boiling energy and dystopian grit."
+  }
+]
+```
+
+✅ 图片以 Base64 格式直接存储在 `posterUrl` 字段中。
+This makes `posters.json` fully portable — your wall travels with you like a U-disk.
+
+---
+
+
+## 🛠️ 本地开发 | Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+构建与部署：
+For production build and deploy:
+
+```bash
+npm run build
+npm run deploy
+```
+
+
+
+
+
