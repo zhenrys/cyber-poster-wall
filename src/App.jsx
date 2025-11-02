@@ -224,7 +224,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
               <h3 className="text-xl font-semibold">
                 {editingItem ? "Edit Poster" : "Poster Manager"}
               </h3>
-              <button onClick={onClose} className="p-2 rounded hover:bg-zinc-800 text-black">
+              <button onClick={onClose} className="p-2 rounded hover:bg-zinc-800 text-white">
                 <X size={18} />
               </button>
             </div>
@@ -252,7 +252,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
                   />
                   <button
                     onClick={handleFetchFromUrl}
-                    className="px-3 py-2 rounded bg-cyan-500 text-black font-semibold hover:bg-cyan-400"
+                    className="px-3 py-2 rounded bg-cyan-500 text-white font-semibold hover:bg-cyan-400"
                   >
                     <LinkIcon size={16} />
                   </button>
@@ -260,7 +260,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => imgInputRef.current?.click()}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-800 text-black hover:bg-zinc-700 py-2"
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 py-2"
                   >
                     <ImageIcon size={16} /> Upload File
                   </button>
@@ -301,7 +301,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
               {/* 添加或保存 */}
               <button
                 onClick={submit}
-                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-semibold py-2"
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-semibold py-2"
               >
                 <Plus size={16} /> {editingItem ? "Save Changes" : "Add Poster"}
               </button>
@@ -310,7 +310,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
               {editingItem && (
                 <button
                   onClick={handleDelete}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-black font-semibold py-2"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold py-2"
                 >
                   <Trash2 size={16} /> Delete Poster
                 </button>
@@ -321,7 +321,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
               {/* 导入导出与清除 */}
               <button
                 onClick={() => jsonInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 py-2 text-black"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 py-2 text-white"
               >
                 <Upload size={16} /> Import Posters JSON
               </button>
@@ -334,13 +334,13 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
               />
               <button
                 onClick={exportJson}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 py-2 text-black"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 py-2 text-white"
               >
                 <Download size={16} /> Export Posters JSON
               </button>
               <button
                 onClick={clearStorage}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-black py-2"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-white py-2"
               >
                 <Trash2 size={16} /> Clear Local Storage
               </button>
@@ -412,7 +412,7 @@ function FlipCard({ poster, onEdit }) {
               e.stopPropagation();
               onEdit && onEdit(poster);
             }}
-            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500 text-black font-semibold hover:bg-cyan-400 self-end"
+            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white-500 text-white font-semibold hover:bg-cyan-400 self-end"
           >
             <Edit3 size={14} /> Edit
           </button>
@@ -451,8 +451,8 @@ export default function App() {
             onClick={() => setDarkMode(!darkMode)}
             className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
               darkMode
-                ? "border border-zinc-700 hover:border-cyan-400 text-black"
-                : "border border-zinc-300 hover:border-cyan-500 text-black"
+                ? "border border-zinc-700 hover:border-cyan-400 text-white"
+                : "border border-zinc-300 hover:border-cyan-500 text-white"
             }`}
           >
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -465,7 +465,7 @@ export default function App() {
               setEditingItem(null);
               setDrawer(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 text-black px-3 py-2 hover:bg-cyan-400"
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 text-white px-3 py-2 hover:bg-cyan-400"
           >
             <Plus size={16} /> Add / Manage
           </button>
@@ -492,7 +492,7 @@ export default function App() {
       {/* 末尾的提示语 */}
       <footer className="mx-auto max-w-6xl px-4 py-10 text-sm text-zinc-500 text-center space-y-3 border-t border-zinc-800/50">
         <p>
-          📸 <strong>Pipeline:</strong> Click <b>Add / Manage</b> button → Import your <code>posters.json</code> → Add / Edit → Export JSON → Clear storage.  
+          🎞️ <strong>Pipeline:</strong> Click <b>Add / Manage</b> posters → Import your <code>posters.json</code> → Add / Edit → Export JSON → Clear storage.  
           Fully offline, local-first, and portable.
         </p>
 
