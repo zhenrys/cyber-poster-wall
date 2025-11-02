@@ -63,23 +63,7 @@ This makes `posters.json` fully portable — your wall travels with you like a U
 
 ---
 
+# ⚖️ License
 
-## 🛠️ 本地开发 | Local Development
-
-```bash
-npm install
-npm run dev
-```
-
-构建与部署：
-For production build and deploy:
-
-```bash
-npm run build
-npm run deploy
-```
-
-
-
-
-
+MIT License — free for personal and educational use.
+© 2025 Henry Zhang. All rights reserved.

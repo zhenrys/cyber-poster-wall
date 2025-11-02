@@ -7,7 +7,8 @@ export default {
     theme: {
       extend: {
         maxWidth: {
-          '14xl': '1800px',
+          '8xl': '96rem', // 相当于 1536px
+          '10xl': '128rem' // 1760px
         },
       },
     },
