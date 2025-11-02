@@ -562,6 +562,8 @@ export default function App() {
           <p>
             <strong></strong> Built with <b>React + Vite + TailwindCSS + Framer Motion</b>.  
             Icons by <b>Lucide</b>. Offline persistence via <code>localStorage</code>.Designed for <b>GitHub Pages</b> / <b>Vercel</b> static hosting.
+          </p>
+          <p>
             ⚖️ <strong>License:</strong> MIT License — free for personal and educational use.  
             © {new Date().getFullYear()} Henry Zhang. All rights reserved.
           </p>
