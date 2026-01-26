@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Upload, Download, Trash2, Edit3, Link as LinkIcon, Clipboard as ClipboardIcon, Image as ImageIcon } from "lucide-react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Sparkles } from "lucide-react";
+import ParticleGallery from "./ParticleGallery";
+import { 
+  getAllPosters, 
+  saveAllPosters, 
+  deletePoster as dbDeletePoster, 
+  clearAllPosters, 
+  migrateFromLocalStorage 
+} from "./db";
 
 const LS_KEY = "cyberwall.posters.v1";
 
@@ -18,43 +26,47 @@ function useLocalData() {
     },
   ]
 
-  // === 仅在初次加载时读取 localStorage ===
+  const [isLoading, setIsLoading] = useState(true);
+
+  // === 初始化：从 IndexedDB 加载数据（支持 localStorage 迁移）===
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
+    const initData = async () => {
+      try {
+        // 1. 尝试从旧版 localStorage 迁移数据
+        await migrateFromLocalStorage(LS_KEY);
 
-      if (raw) {
-        const parsed = JSON.parse(raw);
+        // 2. 从 IndexedDB 加载数据
+        const stored = await getAllPosters();
 
-        // ✅ 仅当解析正常且数组非空时加载本地数据
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
-          return;
+        if (stored && stored.length > 0) {
+          setItems(stored);
+        } else {
+          // 3. 若无数据，加载默认样例并保存到 IndexedDB
+          setItems(defaultPosters);
+          await saveAllPosters(defaultPosters);
         }
+      } catch (err) {
+        console.warn("⚠️ Failed to load posters from IndexedDB:", err);
+        setItems(defaultPosters);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      // ⚙️ 若 localStorage 无数据，才加载默认样例
-      setItems(defaultPosters);
-      localStorage.setItem(LS_KEY, JSON.stringify(defaultPosters));
-    } catch (err) {
-      console.warn("⚠️ Failed to load local posters:", err);
-      setItems(defaultPosters);
-    }
+    initData();
   }, []); // <-- ✅ 空依赖数组：仅运行一次
 
-  // === 当 items 改变时保存 ===
-  useEffect(() => {
-    // ✅ 确保不是初始空数组
-    if (items && Array.isArray(items) && items.length > 0) {
-      try {
-        localStorage.setItem(LS_KEY, JSON.stringify(items));
-      } catch (err) {
-        console.error("❌ Failed to save posters:", err);
-      }
+  // === 保存数据到 IndexedDB 的方法 ===
+  const saveItems = useCallback(async (newItems) => {
+    setItems(newItems);
+    try {
+      await saveAllPosters(newItems);
+    } catch (err) {
+      console.error("❌ Failed to save posters to IndexedDB:", err);
     }
-  }, [items]);
+  }, []);
 
-  return { items, setItems };
+  return { items, setItems, saveItems, isLoading };
 }
 
 function blobToCompressedDataURL(blob, { maxWidth = 800, quality = 0.85 } = {}) {
@@ -90,7 +102,7 @@ async function compressFromUrl(url) {
   return await blobToCompressedDataURL(blob);
 }
 
-function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
+function Drawer({ open, onClose, items, setItems, saveItems, onAdd, editingItem }) {
   const [title, setTitle] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
   const [review, setReview] = useState("");
@@ -158,12 +170,12 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
   };
 
   /** 删除逻辑 **/
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!editingItem) return;
     if (confirm(`⚠️ Delete poster "${editingItem.title}"? This cannot be undone.`)) {
       const filtered = items.filter((p) => p.id !== editingItem.id);
-      setItems(filtered);
-      localStorage.setItem(LS_KEY, JSON.stringify(filtered));
+      await saveItems(filtered);
+      await dbDeletePoster(editingItem.id);
       alert("🗑️ Poster deleted successfully.");
       onClose();
     }
@@ -185,9 +197,8 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
         const merged = [...current, ...parsed];
         const unique = Array.from(new Map(merged.map(p => [p.id, p])).values());
   
-        // === 更新状态与存储 ===
-        setItems(unique);
-        localStorage.setItem(LS_KEY, JSON.stringify(unique));
+        // === 更新状态与存储到 IndexedDB ===
+        await saveItems(unique);
   
         const newCount = unique.length - current.length;
         alert(`✅ Imported ${parsed.length} posters (${newCount} new, ${unique.length} total).`);
@@ -216,11 +227,11 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
     URL.revokeObjectURL(url);
   };
 
-  const clearStorage = () => {
+  const clearStorage = async () => {
     if (confirm("⚠️ Clear all local data?")) {
-      localStorage.removeItem(LS_KEY);
+      await clearAllPosters();
       setItems([]);
-      alert("🧹 Local storage cleared.");
+      alert("🧹 IndexedDB storage cleared.");
     }
   };
 
@@ -365,7 +376,7 @@ function Drawer({ open, onClose, items, setItems, onAdd, editingItem }) {
                 onClick={clearStorage}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-800 hover:bg-red-400 text-white py-2"
               >
-                <Trash2 size={16} /> Clear Local Storage
+                <Trash2 size={16} /> Clear IndexedDB
               </button>
             </div>
           </motion.div>
@@ -481,10 +492,23 @@ function FlipCard({ poster, onEdit }) {
 
 
 export default function App() {
-  const { items, setItems } = useLocalData();
+  const { items, setItems, saveItems, isLoading } = useLocalData();
   const [drawer, setDrawer] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
+  const [particleGalleryOpen, setParticleGalleryOpen] = useState(false);
+
+  // 加载中显示
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-100">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-zinc-400">Loading posters...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -513,7 +537,19 @@ export default function App() {
             }`}
           >
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            {/* <span className="text-sm">{darkMode ? "Light" : "Dark"}</span> */}
+          </button>
+
+          {/* 粒子画廊按钮 */}
+          <button
+            onClick={() => setParticleGalleryOpen(true)}
+            className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
+              darkMode
+                ? "border border-zinc-700 hover:border-purple-400 text-white hover:text-purple-300"
+                : "border border-zinc-400 hover:border-purple-500 text-zinc-700 hover:text-purple-500"
+            }`}
+            title="Particle Gallery"
+          >
+            <Sparkles size={16} />
           </button>
           
           {/* poster manage 按钮 */}
@@ -561,7 +597,7 @@ export default function App() {
         <div className="text-xs text-zinc-500 mt-4 space-y-1">
           <p>
             <strong></strong> Built with <b>React + Vite + TailwindCSS + Framer Motion</b>.  
-            Icons by <b>Lucide</b>. Offline persistence via <code>localStorage</code>.Designed for <b>GitHub Pages</b> / <b>Vercel</b> static hosting.
+            Icons by <b>Lucide</b>. Offline persistence via <code>IndexedDB</code>. Designed for <b>GitHub Pages</b> / <b>Vercel</b> static hosting.
           </p>
           <p>
             ⚖️ <strong>License:</strong> MIT License — free for personal and educational use.  
@@ -577,8 +613,16 @@ export default function App() {
         onClose={() => setDrawer(false)}
         items={items}
         setItems={setItems}
-        onAdd={(p) => setItems([p, ...items])}
+        saveItems={saveItems}
+        onAdd={(p) => saveItems([p, ...items])}
         editingItem={editingItem}
+      />
+
+      {/* 粒子画廊 */}
+      <ParticleGallery
+        images={items}
+        isOpen={particleGalleryOpen}
+        onClose={() => setParticleGalleryOpen(false)}
       />
     </div>
   );
