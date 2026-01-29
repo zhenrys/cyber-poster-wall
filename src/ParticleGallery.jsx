@@ -31,10 +31,14 @@ const PARTICLE_TUNE = {
     amplitude: 4, // vertical wave amplitude
   },
   depth: {
-    baseZ: 300, // base z-range for particles (higher = more depth)
+    baseZ: 60, // base z-range for particles (higher = more depth)
     waveAmp: 55, // z wave amplitude
     waveSpeed: 0.02, // z wave speed
     perspective: 1000, // camera perspective distance
+  },
+  depthApprox: {
+    gamma: 0.9, // contrast curve for luminance->depth
+    parallaxStrength: 0.08, // screen-space parallax strength
   },
   colorBlend: {
     scatterMix: 0.55, // blend towards ambient color during scatter
@@ -45,32 +49,33 @@ const PARTICLE_TUNE = {
 const DIFFUSE_TUNE = {
   // Diffuse "fog" distribution
   radiusPower: 0.75, // bias towards center (lower = denser core)
-  radiusScale: 0.9, // max radius as % of min screen side
+  radiusScale: 0.88, // max radius as % of min screen side (image particles)
+  ambientRadiusScale: 0.82, // max radius for background particles
   ySquash: 0.82, // vertical compression for diffuse cloud
   swirlFreq: 2.4, // swirl frequency around center
   swirlStrength: 0.04, // swirl amount as % of min side
   verticalNoiseFreq: 3.1, // vertical noise frequency
   verticalNoiseStrength: 0.03, // vertical noise amount as % of min side
   margin: 0.12, // allow a soft overscan beyond edges
-  ambientExtraRatio: 0.22, // additional ambient-only particles (relative to image particles)
+  ambientExtraRatio: 0.32, // additional ambient-only particles (relative to image particles)
   ambientColor: "rgba(190, 210, 255, 0.28)",
   ambientSize: 1.6,
-  ambientDepth: 120, // base z-range for ambient-only particles
+  ambientDepth: 1200, // base z-range for ambient-only particles
 };
 
 const TRANSITION_TUNE = {
-  scatterDuration: 3000,
+  scatterDuration: 2500,
   assembleDuration: 100,
 };
 
 const FOCUS_TUNE = {
   // Hold to expand a clear circular area
-  maxRadius: 1000,
-  expandSpeed: 280, // px per second
-  shrinkSpeed: 660, // px per second
+  maxRadius: 1800,
+  expandSpeed: 200, // px per second
+  shrinkSpeed: 560, // px per second
   swirlFreq: 4, // swirl waves around the circle
-  swirlAmp: 18, // px of swirl offset
-  swirlSpeed: 3.2, // radians per second
+  swirlAmp: 58, // px of swirl offset
+  swirlSpeed: 10, // radians per second
 };
 
 class Particle {
@@ -87,6 +92,7 @@ class Particle {
     this.diffuseY = y;
     this.isScattering = false;
     this.color = color;
+    this.depth = 0;
     this.size = size; // 固定小尺寸，保持图像清晰
     this.vx = 0;
     this.vy = 0;
@@ -107,17 +113,31 @@ class Particle {
       Math.random() * (PARTICLE_TUNE.drift.strength.max - PARTICLE_TUNE.drift.strength.min);
     this.wavePhaseZ = Math.random() * Math.PI * 2;
     this.isAmbient = Math.random() < PARTICLE_TUNE.ambientRatio;
+    this.isAmbientOnly = false;
     this.isFocused = false;
   }
 
-  draw(ctx, time = 0, rotation = { x: 0, y: 0 }, center = { x: 0, y: 0 }, phase = "idle") {
+  draw(
+    ctx,
+    time = 0,
+    rotation = { x: 0, y: 0 },
+    center = { x: 0, y: 0 },
+    phase = "idle",
+    parallax = { active: false, x: 0, y: 0 }
+  ) {
     // 使用方形绘制，更密集更清晰
     const wave = this.isFocused
       ? 0
       : Math.sin(this.x * PARTICLE_TUNE.wave.xFreq + time * PARTICLE_TUNE.wave.timeFreq) *
         PARTICLE_TUNE.wave.amplitude;
-    const posX = this.x - center.x;
-    const posY = this.y + wave - center.y;
+    const parallaxX = parallax.active
+      ? (parallax.x - center.x) * this.depth * PARTICLE_TUNE.depthApprox.parallaxStrength
+      : 0;
+    const parallaxY = parallax.active
+      ? (parallax.y - center.y) * this.depth * PARTICLE_TUNE.depthApprox.parallaxStrength
+      : 0;
+    const posX = this.x + parallaxX - center.x;
+    const posY = this.y + wave + parallaxY - center.y;
     const posZ = this.isFocused ? 0 : this.z;
 
     const cosX = Math.cos(rotation.x);
@@ -165,7 +185,7 @@ class Particle {
   }
 
   update(mouse, isExploding, dt = 1, rotation = { x: 0, y: 0 }, center = { x: 0, y: 0 }, phase = "idle") {
-    if (mouse.focus && mouse.focus.active) {
+    if (mouse.focus && mouse.focus.active && !this.isAmbientOnly) {
       const fx = mouse.focus.x - center.x;
       const fy = mouse.focus.y - center.y;
       const invCosY = Math.cos(-rotation.y);
@@ -243,8 +263,6 @@ class Particle {
       const swirlForce = PARTICLE_TUNE.swirl.strength / (distance + PARTICLE_TUNE.swirl.falloff);
       const tx = -dy / distance;
       const ty = dx / distance;
-      this.vx += tx * swirlForce * dt * 120;
-      this.vy += ty * swirlForce * dt * 120;
     }
 
     this.wavePhaseZ += PARTICLE_TUNE.depth.waveSpeed * dt;
@@ -274,6 +292,7 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
     y: null,
     radius: 60,
     focus: { active: false, expanding: false, shrinking: false, x: 0, y: 0, radius: 0, phase: 0 },
+    parallax: { active: false, x: 0, y: 0 },
   });
   const animationRef = useRef(null);
   const lastTimeRef = useRef(0);
@@ -283,12 +302,13 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
   const dragStartRef = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const getDiffusePosition = useCallback(() => {
+  const getDiffusePosition = useCallback((scaleOverride) => {
     const centerX = width / 2;
     const centerY = height / 2;
     const minSide = Math.min(width, height);
     const angle = Math.random() * Math.PI * 2;
-    const radius = Math.pow(Math.random(), DIFFUSE_TUNE.radiusPower) * minSide * DIFFUSE_TUNE.radiusScale;
+    const scale = scaleOverride ?? DIFFUSE_TUNE.radiusScale;
+    const radius = Math.pow(Math.random(), DIFFUSE_TUNE.radiusPower) * minSide * scale;
     const swirl = Math.sin(angle * DIFFUSE_TUNE.swirlFreq) * minSide * DIFFUSE_TUNE.swirlStrength;
     const verticalNoise =
       Math.cos(angle * DIFFUSE_TUNE.verticalNoiseFreq) * minSide * DIFFUSE_TUNE.verticalNoiseStrength;
@@ -361,6 +381,8 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
         // 跳过透明像素，保留暗色像素
         if (a > 40) {
           const alpha = Math.min(1, a / 255 + 0.1);
+          const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+          const depthValue = Math.pow(1 - luminance, PARTICLE_TUNE.depthApprox.gamma);
           const color = {
             r,
             g,
@@ -372,10 +394,11 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
           const particleY = y + offsetY;
           
           // 初始位置：弥漫态，随后再汇聚成图像
-          const diffuse = getDiffusePosition();
+          const diffuse = getDiffusePosition(DIFFUSE_TUNE.radiusScale);
           const startX = diffuse.x;
           const startY = diffuse.y;
           const particle = new Particle(startX, startY, color, particleX, particleY, particleSize);
+          particle.depth = depthValue;
           particle.setDiffuseTarget(diffuse.x, diffuse.y);
           particles.push(particle);
         }
@@ -384,7 +407,7 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
 
     const ambientCount = Math.floor(particles.length * DIFFUSE_TUNE.ambientExtraRatio);
     for (let i = 0; i < ambientCount; i += 1) {
-      const diffuse = getDiffusePosition();
+      const diffuse = getDiffusePosition(DIFFUSE_TUNE.ambientRadiusScale);
       const ambient = new Particle(
         diffuse.x,
         diffuse.y,
@@ -393,8 +416,10 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
         diffuse.y,
         DIFFUSE_TUNE.ambientSize
       );
+      ambient.depth = 0.2;
       ambient.baseZ = (Math.random() - 0.5) * DIFFUSE_TUNE.ambientDepth;
       ambient.isAmbient = true;
+      ambient.isAmbientOnly = true;
       ambient.setDiffuseTarget(diffuse.x, diffuse.y);
       particles.push(ambient);
     }
@@ -433,7 +458,7 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
   useEffect(() => {
     if (!isLoaded || !scatterSignal || phase !== "scatter") return;
     particlesRef.current.forEach((particle) => {
-      const diffuse = getDiffusePosition();
+      const diffuse = getDiffusePosition(DIFFUSE_TUNE.ambientRadiusScale);
       particle.setDiffuseTarget(diffuse.x, diffuse.y);
     });
   }, [scatterSignal, isLoaded, phase, getDiffusePosition]);
@@ -443,7 +468,7 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
     if (phase === "assemble") {
       particlesRef.current.forEach((particle) => {
         if (particle.isAmbient) {
-          const diffuse = getDiffusePosition();
+          const diffuse = getDiffusePosition(DIFFUSE_TUNE.ambientRadiusScale);
           particle.setDiffuseTarget(diffuse.x, diffuse.y);
         } else {
           particle.setTarget(particle.originalX, particle.originalY, false);
@@ -452,7 +477,7 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
     } else if (phase === "idle") {
       particlesRef.current.forEach((particle) => {
         if (particle.isAmbient) {
-          const diffuse = getDiffusePosition();
+          const diffuse = getDiffusePosition(DIFFUSE_TUNE.ambientRadiusScale);
           particle.setDiffuseTarget(diffuse.x, diffuse.y);
         } else {
           particle.setTarget(particle.originalX, particle.originalY, false);
@@ -498,8 +523,15 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
         particle.update(mouseRef.current, isExplodingRef.current, dt, rotationRef.current, {
           x: width / 2,
           y: height / 2,
-        });
-        particle.draw(ctx, now, rotationRef.current, { x: width / 2, y: height / 2 });
+        }, phase);
+        particle.draw(
+          ctx,
+          now,
+          rotationRef.current,
+          { x: width / 2, y: height / 2 },
+          phase,
+          mouseRef.current.parallax
+        );
       }
       
       isExplodingRef.current = false;
@@ -552,8 +584,10 @@ function ParticleCanvas({ imageSrc, width, height, onReady, scatterSignal = 0, p
     if (isDraggingRef.current) {
       const dx = x - dragStartRef.current.x;
       const dy = y - dragStartRef.current.y;
-      rotationRef.current.y = dragStartRef.current.rotY + dx * 0.004;
-      rotationRef.current.x = dragStartRef.current.rotX + dy * 0.004;
+      const nextY = dragStartRef.current.rotY + dx * 0.004;
+      const nextX = dragStartRef.current.rotX + dy * 0.004;
+      rotationRef.current.y = Math.max(-0.65, Math.min(0.35, nextY));
+      rotationRef.current.x = Math.max(-0.65, Math.min(0.35, nextX));
     }
   };
 
